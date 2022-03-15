@@ -8,8 +8,8 @@ import (
 	"github.com/mitchellh/cli"
 	"github.com/pkg/errors"
 	"github.com/vercel/turborepo/cli/internal/context"
-	"github.com/vercel/turborepo/cli/internal/fs"
 	"github.com/vercel/turborepo/cli/internal/scm"
+	scope_filter "github.com/vercel/turborepo/cli/internal/scope/filter"
 	"github.com/vercel/turborepo/cli/internal/ui"
 	"github.com/vercel/turborepo/cli/internal/util"
 	"github.com/vercel/turborepo/cli/internal/util/filter"
@@ -23,6 +23,7 @@ type Opts struct {
 	Cwd                 string
 	IgnorePatterns      []string
 	GlobalDepPatterns   []string
+	FilterPatterns      []string
 }
 
 func ResolvePackages(opts *Opts, scm scm.SCM, ctx *context.Context, tui cli.Ui, logger hclog.Logger) (util.Set, error) {
@@ -47,7 +48,7 @@ func ResolvePackages(opts *Opts, scm scm.SCM, ctx *context.Context, tui cli.Ui, 
 	changedPackages := make(util.Set)
 	// Be specific with the changed packages only if no repo-wide changes occurred
 	if !hasRepoGlobalFileChanged {
-		changedPackages = getChangedPackages(filteredChangedFiles, ctx.PackageInfos)
+		changedPackages = scope_filter.GetChangedPackages(filteredChangedFiles, ctx.PackageInfos)
 	}
 
 	// Scoped packages
@@ -57,8 +58,18 @@ func ResolvePackages(opts *Opts, scm scm.SCM, ctx *context.Context, tui cli.Ui, 
 		return nil, errors.Wrap(err, "invalid scope")
 	}
 
+	filterResolver := &scope_filter.Resolver{
+		Graph:        &ctx.TopologicalGraph,
+		PackageInfos: ctx.PackageInfos,
+		SCM:          scm,
+	}
+	filteredPkgs, err := filterResolver.GetPackagesFromPatterns(opts.FilterPatterns)
+	if err != nil {
+		return nil, err
+	}
+
 	// Filter Packages
-	filteredPkgs := make(util.Set)
+	// filteredPkgs := make(util.Set)
 	includeDependencies := opts.IncludeDependencies
 	includeDependents := opts.IncludeDependents
 	// If there has been a global change, run everything in scope
@@ -180,33 +191,20 @@ func repoGlobalFileHasChanged(opts *Opts, changedFiles []string) (bool, error) {
 	return false, nil
 }
 
-func filterIgnoredFiles(opts *Opts, changedFiles []string) (util.Set, error) {
+func filterIgnoredFiles(opts *Opts, changedFiles []string) ([]string, error) {
 	ignoreGlob, err := filter.Compile(opts.IgnorePatterns)
 	if err != nil {
 		return nil, errors.Wrap(err, "invalid ignore globs")
 	}
-	filteredChanges := make(util.Set)
+	filteredChanges := []string{}
 	for _, file := range changedFiles {
 		// If we don't have anything to ignore, or if this file doesn't match the ignore pattern,
 		// keep it as a changed file.
 		if ignoreGlob == nil || !ignoreGlob.Match(file) {
-			filteredChanges.Add(file)
+			filteredChanges = append(filteredChanges, file)
 		}
 	}
 	return filteredChanges, nil
-}
-
-func getChangedPackages(changedFiles util.Set, packageInfos map[interface{}]*fs.PackageJSON) util.Set {
-	changedPackages := make(util.Set)
-	for k, pkgInfo := range packageInfos {
-		partialPath := pkgInfo.Dir
-		if changedFiles.Some(func(v interface{}) bool {
-			return strings.HasPrefix(fmt.Sprintf("%v", v), partialPath) // true
-		}) {
-			changedPackages.Add(k)
-		}
-	}
-	return changedPackages
 }
 
 func addDependents(deps util.Set, pkg interface{}, ctx *context.Context, logger hclog.Logger) error {

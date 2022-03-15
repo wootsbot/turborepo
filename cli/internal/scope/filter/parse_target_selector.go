@@ -1,4 +1,4 @@
-package run
+package filter
 
 import (
 	"path/filepath"
@@ -15,6 +15,11 @@ type TargetSelector struct {
 	parentDir           string
 	namePattern         string
 	diff                string
+	raw                 string
+}
+
+func (ts *TargetSelector) IsValid() bool {
+  return ts.diff != "" || ts.parentDir != "" || ts.namePattern != ""
 }
 
 // ParseTargetSelector is a function that returns PNPM compatible --filter command line flags
@@ -60,6 +65,7 @@ func ParseTargetSelector(rawSelector string, prefix string) (TargetSelector, err
 				includeDependents:   includeDependents,
 				namePattern:         namePattern,
 				parentDir:           filepath.Join(prefix, selector),
+				raw:                 rawSelector,
 			}, nil
 		}
 		return TargetSelector{
@@ -70,6 +76,7 @@ func ParseTargetSelector(rawSelector string, prefix string) (TargetSelector, err
 			includeDependents:   includeDependents,
 			namePattern:         selector,
 			parentDir:           parentDir,
+			raw:                 rawSelector,
 		}, nil
 	}
 
@@ -93,6 +100,7 @@ func ParseTargetSelector(rawSelector string, prefix string) (TargetSelector, err
 		includeDependents:   includeDependents,
 		namePattern:         namePattern,
 		parentDir:           parentDir,
+		raw:                 rawSelector,
 	}, nil
 }
 
