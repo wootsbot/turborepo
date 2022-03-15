@@ -182,25 +182,43 @@ func Test_filter(t *testing.T) {
 			},
 			[]string{"project-2"},
 		},
-    // Note: what should we do here?
-    // {
-    //   "select by parentDir",
-    //   []*TargetSelector{
-    //     {
-    //       parentDir: "/packages",
-    //     },
-    //   },
-    //   []string{"project-0", "project-1"},
-    // },
-    {
-      "select by parentDir using glob",
-      []*TargetSelector{
-        {
-          parentDir: "/packages/*",
-        },
-      },
-      []string{"project-0", "project-1"},
-    },
+    // Note: we don't support the option to switch path prefix mode
+		// {
+		// 	"select by parentDir",
+		// 	[]*TargetSelector{
+		// 		{
+		// 			parentDir: "/packages",
+		// 		},
+		// 	},
+		// 	[]string{"project-0", "project-1"},
+		// },
+		{
+			"select by parentDir using glob",
+			[]*TargetSelector{
+				{
+					parentDir: "/packages/*",
+				},
+			},
+			[]string{"project-0", "project-1"},
+		},
+		{
+			"select by parentDir using globstar",
+			[]*TargetSelector{
+				{
+					parentDir: "/project-5/**",
+				},
+			},
+			[]string{"project-5", "project-6"},
+		},
+		{
+			"select by parentDir with no glob",
+			[]*TargetSelector{
+				{
+					parentDir: "/project-5",
+				},
+			},
+			[]string{"project-5"},
+		},
 	}
 
 	for _, tc := range testCases {
