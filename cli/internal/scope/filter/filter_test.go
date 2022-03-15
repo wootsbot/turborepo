@@ -182,7 +182,7 @@ func Test_filter(t *testing.T) {
 			},
 			[]string{"project-2"},
 		},
-    // Note: we don't support the option to switch path prefix mode
+		// Note: we don't support the option to switch path prefix mode
 		// {
 		// 	"select by parentDir",
 		// 	[]*TargetSelector{
@@ -219,6 +219,16 @@ func Test_filter(t *testing.T) {
 			},
 			[]string{"project-5"},
 		},
+		{
+			"select all packages except one",
+			[]*TargetSelector{
+				{
+					exclude:     true,
+					namePattern: "project-1",
+				},
+			},
+			[]string{"project-0", "project-2", "project-3", "project-4", "project-5", "project-6"},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -227,6 +237,23 @@ func Test_filter(t *testing.T) {
 			t.Fatalf("%v failed to filter packages: %v", tc.Name, err)
 		}
 		setMatches(t, tc.Name, pkgs.pkgs, tc.Expected)
+	}
+
+	pkgs, err := r.GetFilteredPackages([]*TargetSelector{
+		{
+			excludeSelf:         true,
+			includeDependencies: true,
+			namePattern:         "project-7",
+		},
+	})
+	if err != nil {
+		t.Fatalf("unmatched filter failed to filter packages: %v", err)
+	}
+	if pkgs.pkgs.Len() != 0 {
+		t.Errorf("unmatched filter expected no packages, got %v", strings.Join(pkgs.pkgs.UnsafeListOfStrings(), ", "))
+	}
+	if len(pkgs.unusedFilters) != 1 {
+		t.Errorf("unmatched filter expected to report one unused filter, got %v", len(pkgs.unusedFilters))
 	}
 }
 

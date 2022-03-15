@@ -73,9 +73,21 @@ func (r *Resolver) filterGraph(selectors []*TargetSelector) (*SelectedPackages, 
 			includeSelectors = append(includeSelectors, selector)
 		}
 	}
-	include, err := r.filterGraphWithSelectors(includeSelectors)
-	if err != nil {
-		return nil, err
+	var include *SelectedPackages
+	if len(includeSelectors) > 0 {
+		found, err := r.filterGraphWithSelectors(includeSelectors)
+		if err != nil {
+			return nil, err
+		}
+		include = found
+	} else {
+		vertexSet := make(util.Set)
+		for _, v := range r.Graph.Vertices() {
+			vertexSet.Add(v)
+		}
+		include = &SelectedPackages{
+			pkgs: vertexSet,
+		}
 	}
 	exclude, err := r.filterGraphWithSelectors(excludeSelectors)
 	if err != nil {
