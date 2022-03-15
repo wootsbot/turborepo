@@ -2,8 +2,10 @@ package filter
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
+	"github.com/bmatcuk/doublestar/v4"
 	"github.com/pkg/errors"
 	"github.com/pyr-sh/dag"
 	"github.com/vercel/turborepo/cli/internal/fs"
@@ -105,8 +107,9 @@ func (r *Resolver) filterGraphWithSelectors(selectors []*TargetSelector) (*Selec
 		} else if selector.parentDir != "" {
 			// get packages by path
 			selectorWasUsed = true
+			parentDir := filepath.Join(r.Cwd, selector.parentDir)
 			for name, pkg := range r.PackageInfos {
-				if matches, err := fs.DirContainsPath(selector.parentDir, pkg.Dir); err != nil {
+				if matches, err := doublestar.PathMatch(parentDir, pkg.Dir); err != nil {
 					return nil, fmt.Errorf("failed to resolve directory relationship %v contains %v: %v", selector.parentDir, pkg.Dir, err)
 				} else if matches {
 					entryPackages.Add(name.(string))

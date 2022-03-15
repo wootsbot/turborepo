@@ -182,6 +182,25 @@ func Test_filter(t *testing.T) {
 			},
 			[]string{"project-2"},
 		},
+    // Note: what should we do here?
+    // {
+    //   "select by parentDir",
+    //   []*TargetSelector{
+    //     {
+    //       parentDir: "/packages",
+    //     },
+    //   },
+    //   []string{"project-0", "project-1"},
+    // },
+    {
+      "select by parentDir using glob",
+      []*TargetSelector{
+        {
+          parentDir: "/packages/*",
+        },
+      },
+      []string{"project-0", "project-1"},
+    },
 	}
 
 	for _, tc := range testCases {
@@ -202,7 +221,7 @@ func Test_matchScopedPackage(t *testing.T) {
 	packageJSONs := make(map[interface{}]*fs.PackageJSON)
 	graph := &dag.AcyclicGraph{}
 	graph.Add("@foo/bar")
-	packageJSONs["project-0"] = &fs.PackageJSON{
+	packageJSONs["@foo/bar"] = &fs.PackageJSON{
 		Name: "@foo/bar",
 		Dir:  filepath.Join(root, "packages", "bar"),
 	}
@@ -221,4 +240,74 @@ func Test_matchScopedPackage(t *testing.T) {
 		t.Fatalf("failed to filter packages: %v", err)
 	}
 	setMatches(t, "match scoped package", pkgs.pkgs, []string{"@foo/bar"})
+}
+
+func Test_matchExactPackages(t *testing.T) {
+	root, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get working directory: %v", err)
+	}
+	scm := &mockSCM{}
+	packageJSONs := make(map[interface{}]*fs.PackageJSON)
+	graph := &dag.AcyclicGraph{}
+	graph.Add("@foo/bar")
+	packageJSONs["@foo/bar"] = &fs.PackageJSON{
+		Name: "@foo/bar",
+		Dir:  filepath.Join(root, "packages", "@foo", "bar"),
+	}
+	graph.Add("bar")
+	packageJSONs["bar"] = &fs.PackageJSON{
+		Name: "bar",
+		Dir:  filepath.Join(root, "packages", "bar"),
+	}
+	r := &Resolver{
+		Graph:        graph,
+		PackageInfos: packageJSONs,
+		Cwd:          root,
+		SCM:          scm,
+	}
+	pkgs, err := r.GetFilteredPackages([]*TargetSelector{
+		{
+			namePattern: "bar",
+		},
+	})
+	if err != nil {
+		t.Fatalf("failed to filter packages: %v", err)
+	}
+	setMatches(t, "match exact package", pkgs.pkgs, []string{"bar"})
+}
+
+func Test_matchMultipleScopedPackages(t *testing.T) {
+	root, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get working directory: %v", err)
+	}
+	scm := &mockSCM{}
+	packageJSONs := make(map[interface{}]*fs.PackageJSON)
+	graph := &dag.AcyclicGraph{}
+	graph.Add("@foo/bar")
+	packageJSONs["@foo/bar"] = &fs.PackageJSON{
+		Name: "@foo/bar",
+		Dir:  filepath.Join(root, "packages", "@foo", "bar"),
+	}
+	graph.Add("@types/bar")
+	packageJSONs["@types/bar"] = &fs.PackageJSON{
+		Name: "@types/bar",
+		Dir:  filepath.Join(root, "packages", "@types", "bar"),
+	}
+	r := &Resolver{
+		Graph:        graph,
+		PackageInfos: packageJSONs,
+		Cwd:          root,
+		SCM:          scm,
+	}
+	pkgs, err := r.GetFilteredPackages([]*TargetSelector{
+		{
+			namePattern: "bar",
+		},
+	})
+	if err != nil {
+		t.Fatalf("failed to filter packages: %v", err)
+	}
+	setMatches(t, "match nothing with multiple scoped packages", pkgs.pkgs, []string{})
 }
